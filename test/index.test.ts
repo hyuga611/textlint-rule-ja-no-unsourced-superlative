@@ -97,3 +97,17 @@ test('長い語が短い語より優先して当たる', async () => {
   assert.equal(msgs.length, 1);
   assert.match(msgs[0] ?? '', /業界最安/);
 });
+
+test('「業界最安値」は尻切れにならず、その語のまま指摘される', async () => {
+  // 0.1.0 はここで「業界最安」と報告していた。一件しか鳴らず位置も正しいので
+  // 実害は無いが、書き手が直すべき語を正確には指していない。
+  const msgs = await lint('業界最安値でご提供します。');
+  assert.equal(msgs.length, 1);
+  assert.match(msgs[0] ?? '', /「業界最安値」/);
+});
+
+test('aggressive の「業界最高峰」も尻切れにならない', async () => {
+  const msgs = await lint('業界最高峰の品質です。', { aggressive: true });
+  assert.equal(msgs.length, 1);
+  assert.match(msgs[0] ?? '', /「業界最高峰」/);
+});

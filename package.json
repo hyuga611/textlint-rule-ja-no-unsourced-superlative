@@ -1,6 +1,6 @@
 {
   "name": "textlint-rule-ja-no-unsourced-superlative",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "根拠の併記がない最大級表現（No.1・日本初・業界最安値）を報告する textlint ルール。景品表示法の No.1 表示の考え方に沿って、主張そのものではなく出典の有無だけを見る。実行時依存なし。",
   "type": "module",
   "main": "dist/src/index.js",
