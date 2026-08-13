@@ -1,0 +1,55 @@
+{
+  "name": "textlint-rule-ja-no-unsourced-superlative",
+  "version": "0.1.0",
+  "description": "根拠の併記がない最大級表現（No.1・日本初・業界最安値）を報告する textlint ルール。景品表示法の No.1 表示の考え方に沿って、主張そのものではなく出典の有無だけを見る。実行時依存なし。",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test \"dist/test/**/*.test.js\"",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "textlint",
+    "textlintrule",
+    "japanese",
+    "日本語",
+    "景品表示法",
+    "広告",
+    "コンプライアンス",
+    "No.1"
+  ],
+  "author": "hyuga611",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyuga611/textlint-rule-ja-no-unsourced-superlative.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hyuga611/textlint-rule-ja-no-unsourced-superlative/issues"
+  },
+  "homepage": "https://github.com/hyuga611/textlint-rule-ja-no-unsourced-superlative#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@textlint/kernel": "^15.0.0",
+    "@textlint/textlint-plugin-markdown": "^15.0.0",
+    "@textlint/types": "^15.8.0",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.6.0"
+  }
+}

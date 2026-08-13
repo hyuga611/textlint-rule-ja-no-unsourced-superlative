@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # The way this rule fails is by firing too often, not by missing things.
+      # A rule that cries wolf gets deleted from .textlintrc, and then it stops
+      # catching the real ones too. So every change is measured against prose
+      # that is not advertising, where the correct number of findings is zero.
+      - name: It must stay silent on writing that is not advertising
+        run: |
+          npm run build
+          node scripts/false-positive-check.mjs corpus

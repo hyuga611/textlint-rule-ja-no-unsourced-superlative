@@ -1,0 +1,77 @@
+name: Release
+
+# Publishing by hand works until the day it does not: the tag says one version,
+# package.json says another, and the tarball that reaches everyone was built from
+# a working tree nobody can reconstruct.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and check, but do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: npm
+      - run: npm ci
+
+      - name: The tag and package.json must agree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          echo "tag=$TAG package.json=$PKG"
+          test "$TAG" = "$PKG" || { echo "::error::tag $TAG does not match package.json $PKG"; exit 1; }
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/false-positive-check.mjs corpus
+
+      # The tests are built into dist/ alongside the rule. `files` narrows the
+      # tarball to dist/src, and this checks that it actually did.
+      - name: The published tarball must contain only the rule
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          if grep -q '"path": *"dist/test' /tmp/pack.json; then
+            echo "::error::the test build is in the package"
+            exit 1
+          fi
+
+  publish:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm install -g npm@latest
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+            --notes "See the [README](https://github.com/${GITHUB_REPOSITORY}#readme)." --verify-tag
