@@ -111,3 +111,45 @@ test('aggressive の「業界最高峰」も尻切れにならない', async () 
   assert.equal(msgs.length, 1);
   assert.match(msgs[0] ?? '', /「業界最高峰」/);
 });
+
+// --- 見逃しの監査（2026-08） ---
+// 別のモデルに「このルールを黙らせる広告文」を作らせ、実際に通して再現したもの。
+// 広告文は年号と全角だらけなので、実際の LP ほど鳴らない状態になっていた。
+
+test('日付の言及にすぎない西暦では黙らない', async () => {
+  // 以前は西暦4桁があれば何でも根拠とみなしていた。「2026年春」は時点の申告ではない。
+  const msgs = await lint('日本一選ばれている宅配サービス。2026年夏、新エリアにも対応予定！');
+  assert.equal(msgs.length, 1);
+});
+
+test('「時点」を伴う西暦は従来どおり根拠として扱う', async () => {
+  assert.deepEqual(await lint('顧客満足度No.1（2026年3月時点）'), []);
+  assert.deepEqual(await lint('顧客満足度No.1（2026年3月末現在）'), []);
+});
+
+test('全角の「Ｎｏ．１」も見つける', async () => {
+  const msgs = await lint('顧客満足度Ｎｏ．１の転職サービスです。');
+  assert.equal(msgs.length, 1);
+  assert.match(msgs[0] ?? '', /「Ｎｏ．１」/); // 報告は書き手が書いた全角のまま
+});
+
+test('全角で書かれた根拠（ｎ＝1,200）も根拠として読む', async () => {
+  assert.deepEqual(await lint('顧客満足度No.1（ｎ＝1,200 当社調べ）'), []);
+});
+
+test('「シェア首位」「最低価格」「ナンバー・ワン」を語彙に含む', async () => {
+  assert.equal((await lint('国内シェア首位のクラウド会計ソフト。')).length, 1);
+  assert.equal((await lint('地域最低価格を保証します。')).length, 1);
+  assert.equal((await lint('口コミ評価ナンバー・ワンの脱毛サロン。')).length, 1);
+});
+
+test('「業界最低価格」は尻切れにならない', async () => {
+  const msgs = await lint('業界最低価格でご提供します。');
+  assert.equal(msgs.length, 1);
+  assert.match(msgs[0] ?? '', /「業界最低価格」/);
+});
+
+test('「首位」単体は鳴らさない（順位表・スポーツで普通に使う）', async () => {
+  assert.deepEqual(await lint('リーグ首位のチームが勝った。'), []);
+  assert.deepEqual(await lint('彼が首位打者になった。'), []);
+});

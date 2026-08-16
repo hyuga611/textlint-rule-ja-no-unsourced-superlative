@@ -67,8 +67,17 @@ const DEFAULT_WORDS: readonly string[] = [
   '業界最安値',
   '最安値',
   '業界最安',
+  // 同じく複合形が先。「業界最低価格」が「最低価格」で当たると尻切れになる。
+  '業界最低価格',
+  '地域最低価格',
+  '最低価格',
   '最高峰',
   '唯一無二',
+  // 「ナンバーワン」の表記ゆれ。中黒入りは別の文字列なので語彙に無いと素通りする。
+  'ナンバー・ワン',
+  // 「首位」単体は順位表・スポーツで普通に使うので入れない。「シェア首位」なら
+  // 市場での一番を主張していると誰が読んでも取れる。
+  'シェア首位',
 ];
 
 /** `aggressive` のときだけ足す語。非広告用法が普通にあるもの。 */
@@ -102,8 +111,26 @@ const DEFAULT_EVIDENCE: readonly string[] = [
   'N=',
 ];
 
-/** 「2026年3月時点」のような調査時点の表記。 */
-const DATE_EVIDENCE = /(19|20)\d{2}\s*年/;
+/**
+ * 「2026年3月時点」のような調査時点の表記。
+ *
+ * 以前は `(19|20)\d{2}\s*年` で、**西暦4桁なら何でも**根拠とみなしていた。コメントが
+ * 書いていた意図より実装がずっと緩く、「2026年春の新プラン」のような日付の言及だけで
+ * 最大級表現が黙る。広告文は年号だらけなので、実際の LP ほど鳴らなくなっていた。
+ * 「時点」「現在」を伴う場合だけに絞る（調査年の明示は 調査/調べ 側の語彙で拾う）。
+ */
+const DATE_EVIDENCE = /(19|20)\d{2}\s*年[^。、\n]{0,12}?(?:時点|現在)/;
+
+/**
+ * 全角英数字・記号を半角に寄せる（U+FF01–U+FF5E → U+0021–U+007E）。
+ *
+ * 日本語の広告は「Ｎｏ．１」「ｎ＝1,200」のように全角で書かれることが普通にあり、
+ * 半角の語彙だけを見ていると素通りする。**1文字＝1文字の変換なので位置がずれない**——
+ * 報告のインデックスは元テキストのものをそのまま使える。
+ */
+function toHalfWidth(s: string): string {
+  return s.replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/　/g, ' ');
+}
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -139,16 +166,19 @@ const rule: TextlintRuleModule<Options> = (context, options = {}) => {
   return {
     [Syntax.Str](node) {
       if (pattern === undefined) return;
-      const text = getSource(node);
+      const source = getSource(node);
+      // 全角を寄せた写しの上で判定する。長さが変わらないので位置は元テキストと共通。
+      const text = toHalfWidth(source);
       pattern.lastIndex = 0;
       const seen = new Set<number>();
       let m: RegExpExecArray | null;
       while ((m = pattern.exec(text)) !== null) {
         const at = m.index;
-        const word = m[0];
+        // 報告には書き手が実際に書いた形を出す（「Ｎｏ．１」を「No.1」と言い換えない）。
+        const word = source.slice(at, at + m[0].length);
         if (seen.has(at)) continue;
         seen.add(at);
-        if (hasEvidenceNear(text, at, word.length, within, evidence)) continue;
+        if (hasEvidenceNear(text, at, m[0].length, within, evidence)) continue;
         report(
           node,
           new RuleError(
